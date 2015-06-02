@@ -40,7 +40,8 @@ string colorToString(int color) {
     string r_c = r == 1 ? "1" : "0";
     string g_c = g == 1 ? "1" : "0";
     string b_c = b == 1 ? "1" : "0";
-    return r_c + g_c + b_c;
+    string c = r_c + g_c + b_c;
+    return c == "000" ? "0" : c;
 }
 
 void readBoardDescription() {
@@ -107,6 +108,23 @@ void printBoard() {
             }
         }
     }
+
+    for (auto device : settableDevices) {
+        cout << device->name << " " << 0 << " " << 0 << " " << device->direction << " " << device->color << endl;
+    }
+}
+
+int propagationDirection(string device, int x, int y, int direction) {
+    if (device == "EM") {
+        return x > 1 && y > 1 && x < width && y < height ? direction : -1;
+    }
+    if (device == "BL") {
+        return -1;
+    }
+    if (device == "LU") {
+        //TODO: directions
+    }
+    return -1;
 }
 
 int main() {
