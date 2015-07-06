@@ -359,7 +359,6 @@ bool solve(bool mark) {
                 lu->y = y;
 
                 for (int dir = 0; dir < 8; ++dir) {
-                    computeLights();
                     if (DEBUG) {
                         printf("LU %d %d %d\n", x, y, dir);
                     }
@@ -384,9 +383,9 @@ bool solve(bool mark) {
                 LPdevices.pop_back();
                 lp->x = x;
                 lp->y = y;
+                computeLights();
 
                 for (int dir = 0; dir < 4; ++dir) {
-                    computeLights();
                     if (DEBUG) {
                         printf("LP %d %d %d\n", x, y, dir);
                     }
@@ -411,9 +410,9 @@ bool solve(bool mark) {
                 LKdevices.pop_back();
                 lk->x = x;
                 lk->y = y;
+                computeLights();
 
                 for (int dir = 0; dir < 8; ++dir) {
-                    computeLights();
                     if (DEBUG) {
                         printf("LK %d %d %d\n", x, y, dir);
                     }

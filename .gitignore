@@ -89,3 +89,12 @@ install_manifest.txt
 *.png
 !img/*.png
 !example.out
+*.in
+input*
+output*
+main
+tests.py
+tests/
+tests2/
+unit/
+judge.py
