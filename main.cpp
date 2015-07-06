@@ -1,27 +1,50 @@
-#include <string>
-#include <iostream>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
+#include <string>
 
 using namespace std;
 
 struct Device {
     string name;
     int direction;
-    bool movable;
     int color;
+    int x;
+    int y;
 };
 
 struct BoardElement {
     Device *device;
     int color;
+    int colorDirections[8];
+    bool checkedLP;
+    bool checkedLU;
+    bool checkedLK;
 };
+
+void propagateLight(int x, int y, int direction, int color);
+
+int directionPlus180(int direction);
+
+int directionToX(int direction);
+
+int directionToY(int direction);
+
+const char *s(const string &str) {
+    return str.c_str();
+}
 
 BoardElement **board;
 vector<Device *> settableDevices;
+vector<Device *> lasers;
+vector<Device *> targets;
+vector<Device *> LUdevices;
+vector<Device *> LPdevices;
+vector<Device *> LKdevices;
 
 int width, height, devicesLength;
 
-const bool DEBUG = true;
+const bool DEBUG = false;
 
 int stringToColor(string color) {
     if (color.length() != 3) {
@@ -46,7 +69,8 @@ string colorToString(int color) {
 
 void readBoardDescription() {
     //Read board parameters
-    cin >> width >> height >> devicesLength;
+    scanf("%d %d", &width, &height);
+    scanf("%d", &devicesLength);
 
     //Create board
     board = (BoardElement **) malloc((height + 1) * sizeof(BoardElement *));
@@ -57,9 +81,14 @@ void readBoardDescription() {
             device->name = "EM";
             device->color = 0;
             device->direction = 0;
-            device->movable = true;
             board[yPos][xPos].device = device;
-            board[yPos][xPos].color = 0;
+            board[yPos][xPos].color = 0x0;
+            board[yPos][xPos].checkedLU = false;
+            board[yPos][xPos].checkedLP = false;
+            board[yPos][xPos].checkedLK = false;
+            for (int dir = 0; dir < 8; ++dir) {
+                board[yPos][xPos].colorDirections[dir] = 0x0;
+            }
         }
     }
 
@@ -67,68 +96,353 @@ void readBoardDescription() {
     string deviceCode, color;
     int direction, x, y;
     for (int i = 0; i < devicesLength; ++i) {
-        cin >> deviceCode >> x >> y >> direction >> color;
+        char *devCode = new char[3];
+        char *col = new char[4];
+        scanf("%2s %d %d %d %3s", devCode, &x, &y, &direction, col);
+        deviceCode = string(devCode);
+        color = string(col);
+        board[y][x].device->x = x;
+        board[y][x].device->y = y;
         if (deviceCode == "ES" || deviceCode == "RU" || deviceCode == "BL" || deviceCode == "TG") {
             board[y][x].device->name = deviceCode;
-            board[y][x].device->movable = false;
             board[y][x].device->direction = direction;
             int parsedColor = stringToColor(color);
             board[y][x].device->color = parsedColor;
             board[y][x].color = parsedColor;
+
+            if (deviceCode == "ES") {
+                lasers.push_back(board[y][x].device);
+            }
+
+            if (deviceCode == "TG") {
+                targets.push_back(board[y][x].device);
+            }
         }
         if (deviceCode == "LU" || deviceCode == "LP" || deviceCode == "LK") {
             Device *device = new Device;
             device->name = deviceCode;
             device->color = stringToColor(color);
             device->direction = direction;
-            device->movable = true;
             settableDevices.push_back(device);
+            if (deviceCode == "LU") {
+                LUdevices.push_back(device);
+            }
+            if (deviceCode == "LP") {
+                LPdevices.push_back(device);
+            }
+            if (deviceCode == "LK") {
+                LKdevices.push_back(device);
+            }
         }
     }
 }
 
-void printBoard() {
-    if (DEBUG) {
+void printBoard(bool colors) {
+    if (DEBUG && !colors) {
         for (int y = 1; y <= height; ++y) {
             for (int x = 1; x <= width; ++x) {
-                cout << board[y][x].device->name << " ";
+                printf("%s ", s(board[y][x].device->name));
             }
-            cout << endl;
+            printf("\n");
         }
-        cout << endl;
+        printf("\n");
     }
 
-    cout << width << " " << height << endl << devicesLength << endl;
-    for (int y = 0; y <= height; ++y) {
-        for (int x = 0; x <= width; ++x) {
-            if (board[y][x].device->name != "EM") {
-                Device *device = board[y][x].device;
-                string color = colorToString(device->color);
-                cout << device->name << " " << x << " " << y << " " << device->direction << " " << color << endl;
+    if (!colors) {
+        printf("%d %d\n%d\n", width, height, devicesLength);
+        for (int y = 0; y <= height; ++y) {
+            for (int x = 0; x <= width; ++x) {
+                if (board[y][x].device->name != "EM") {
+                    Device *device = board[y][x].device;
+                    string color = colorToString(device->color);
+                    printf("%s %d %d %d %s\n", device->name.c_str(), x, y,
+                           device->direction, color.c_str());
+                }
             }
         }
-    }
 
-    for (auto device : settableDevices) {
-        cout << device->name << " " << 0 << " " << 0 << " " << device->direction << " " << device->color << endl;
+        for (auto device : settableDevices) {
+            if (device->x != 0 || device->y != 0) {
+                continue;
+            }
+            printf("%s %d %d %d %s\n", device->name.c_str(), 0, 0, device->direction,
+                   colorToString(device->color).c_str());
+        }
+    } else {
+        for (int y = 1; y <= height; ++y) {
+            for (int x = 1; x <= width; ++x) {
+                printf("%s\t", colorToString(board[y][x].color).c_str());
+            }
+            printf("\n");
+        }
     }
 }
 
-int propagationDirection(string device, int x, int y, int direction) {
-    if (device == "EM") {
-        return x > 1 && y > 1 && x < width && y < height ? direction : -1;
+/*
+ * Directions in the blocks:
+ *  7  6  5
+ *  0  *  4
+ *  1  2  3
+ */
+
+const int luPropagation[8][8] = {
+//        0   1   2   3   4   5   6   7
+        {0,  7,  -1, -1, -1, -1, -1, 1}, //0
+        {2,  1,  0,  -1, -1, -1, -1, -1}, //1
+        {-1, 3,  2,  1,  -1, -1, -1, -1}, //2
+        {-1, -1, 4,  3,  2,  -1, -1, -1}, //3
+        {-1, -1, -1, 5,  4,  3,  -1, -1}, //4
+        {-1, -1, -1, -1, 6,  5,  4,  -1}, //5
+        {-1, -1, -1, -1, -1, 7,  6,  5}, //6
+        {6,  1,  0,  -1, -1, -1, 0,  7}  //7
+};
+
+const int lkPropagation[8][8] = {
+//        0   1   2   3   4   5   6   7
+        {7,  6,  -1, -1, -1, -1, 1,  0}, //0
+        {1,  0,  7,  -1, -1, -1, -1, 2}, //1
+        {3,  2,  1,  0,  -1, -1, -1, -1}, //2
+        {-1, 4,  3,  2,  1,  -1, -1, -1}, //3
+        {-1, -1, 5,  4,  3,  2,  -1, -1}, //4
+        {-1, -1, -1, 6,  5,  4,  3,  -1}, //5
+        {-1, -1, -1, -1, 7,  6,  5,  4}, //6
+        {5,  -1, -1, -1, -1, 0,  7,  6}  //7
+};
+
+const int lpPropagation[4][8] = {
+//        0   1   2   3   4   5   6   7
+        {-1, 7,  -1, 5,  -1, 3,  -1, 1}, //0
+        {2,  -1, 0,  -1, 6,  -1, 4,  -1}, //1
+        {-1, 3,  -1, 1,  -1, 7,  -1, 5}, //2
+        {6,  -1, 4,  -1, 2,  -1, 0,  -1}, //3
+};
+
+int propagationDirection(Device *device, int x, int y, int direction, int color) {
+    string name = device->name;
+    int oppositeDirection = directionPlus180(direction);
+    int dir = -1;
+    if (name == "EM" || name == "TG") {
+        dir = oppositeDirection;
     }
-    if (device == "BL") {
+    if (name == "BL") {
         return -1;
     }
-    if (device == "LU") {
-        //TODO: directions
+    if (name == "LU") {
+        dir = luPropagation[device->direction][direction];
     }
-    return -1;
+    if (name == "LP") {
+        int dx = directionToX(oppositeDirection), dy = directionToY(oppositeDirection);
+        int newX = x + dx, newY = y + dy;
+        printf("newX: %d newY: %d\n", newX, newY);
+        if (newX >= 1 && newY >= 1 && newX <= width && newY <= height && (direction % 2) != (device->direction % 2)) {
+            printf("P dir: %d newX: %d newY:%d\n", oppositeDirection, newX, newY);
+            propagateLight(newX, newY, oppositeDirection, color);
+            printf("END\n");
+        }
+        dir = lpPropagation[device->direction][direction];
+    }
+    if (name == "LK") {
+        dir = lkPropagation[device->direction][direction];
+    }
+    if (name == "ES") {
+        dir = oppositeDirection;
+    }
+    if (name == "RU") {
+        if (direction != device->direction && direction != directionPlus180(device->direction)) {
+            return -1;
+        }
+        dir = oppositeDirection;
+    }
+
+    int dx = directionToX(dir);
+    int dy = directionToY(dir);
+    int newX = x + dx;
+    int newY = y + dy;
+    if (DEBUG) {
+        printf("dir: %d newX: %d newY: %d\n", dir, newX, newY);
+    }
+    return newX >= 1 && newY >= 1 && newX <= width && newY <= height ? dir : -1;
+}
+
+int directionPlus180(int direction) {
+    return (direction + 4) % 8;
+}
+
+int directionToX(int direction) {
+    switch (direction) {
+        case 0:
+        case 1:
+        case 7:
+            return -1;
+        case 2:
+        case 6:
+            return 0;
+        default:
+            return 1;
+    }
+}
+
+int directionToY(int direction) {
+    switch (direction) {
+        case 1:
+        case 2:
+        case 3:
+            return 1;
+        case 0:
+        case 4:
+            return 0;
+        default:
+            return -1;
+    }
+}
+
+void propagateLight(int x, int y, int direction, int color) {
+    direction = directionPlus180(direction);
+    //If we haven't checked the lights...
+    while ((board[y][x].colorDirections[direction] & color) == 0x0) {
+        board[y][x].color |= color;
+        board[y][x].colorDirections[direction] |= color;
+        int newDirection = propagationDirection(board[y][x].device, x, y, direction, color);
+        if (newDirection == -1) {
+            return;
+        }
+        int dx = directionToX(newDirection), dy = directionToY(newDirection);
+        x += dx;
+        y += dy;
+        direction = directionPlus180(newDirection);
+    }
+}
+
+void computeLights() {
+    for (int y = 1; y <= height; ++y) {
+        for (int x = 1; x <= width; ++x) {
+            board[y][x].color = 0x0;
+            for (int dir = 0; dir < 8; ++dir) {
+                board[y][x].colorDirections[dir] = 0x0;
+            }
+        }
+    }
+    for (auto laser :lasers) {
+        propagateLight(laser->x, laser->y, laser->direction, laser->color);
+    }
+
+    if (DEBUG) {
+        printBoard(true);
+    }
+}
+
+bool checkIfDone() {
+    for (auto target :targets) {
+        if (board[target->y][target->x].color != target->color) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool solve(bool mark) {
+    computeLights();
+
+    if (checkIfDone()) {
+        return true;
+    }
+
+    for (int y = 1; y <= height; ++y) {
+        for (int x = 1; x <= width; ++x) {
+            if (board[y][x].device->name != "EM" || board[y][x].color == 0x0) {
+                continue;
+            }
+
+            Device *dev = board[y][x].device;
+
+            if (!board[y][x].checkedLU && LUdevices.size() > 0) {
+                Device *lu = LUdevices[LUdevices.size() - 1];
+                LUdevices.pop_back();
+                lu->x = x;
+                lu->y = y;
+
+                for (int dir = 0; dir < 8; ++dir) {
+                    if (DEBUG) {
+                        printf("LU %d %d %d\n", x, y, dir);
+                    }
+                    board[y][x].device = lu;
+                    lu->direction = dir;
+                    if (solve(false)) {
+                        return true;
+                    }
+                }
+
+                lu->x = 0;
+                lu->y = 0;
+                LUdevices.push_back(lu);
+                board[y][x].device = dev;
+                if (mark) {
+                    board[y][x].checkedLU = true;
+                }
+            }
+
+            if (!board[y][x].checkedLP && LPdevices.size() > 0) {
+                Device *lp = LPdevices[LPdevices.size() - 1];
+                LPdevices.pop_back();
+                lp->x = x;
+                lp->y = y;
+
+                for (int dir = 0; dir < 4; ++dir) {
+                    if (DEBUG) {
+                        printf("LP %d %d %d\n", x, y, dir);
+                    }
+                    board[y][x].device = lp;
+                    lp->direction = dir;
+                    if (solve(false)) {
+                        return true;
+                    }
+                }
+
+                lp->x = 0;
+                lp->y = 0;
+                LPdevices.push_back(lp);
+                board[y][x].device = dev;
+                if (mark) {
+                    board[y][x].checkedLP = true;
+                }
+            }
+
+            if (!board[y][x].checkedLK && LKdevices.size() > 0) {
+                Device *lk = LKdevices[LKdevices.size() - 1];
+                LKdevices.pop_back();
+                lk->x = x;
+                lk->y = y;
+
+                for (int dir = 0; dir < 8; ++dir) {
+                    if (DEBUG) {
+                        printf("LK %d %d %d\n", x, y, dir);
+                    }
+                    board[y][x].device = lk;
+                    lk->direction = dir;
+                    if (solve(false)) {
+                        return true;
+                    }
+                }
+
+                lk->x = 0;
+                lk->y = 0;
+                LKdevices.push_back(lk);
+                board[y][x].device = dev;
+                if (mark) {
+                    board[y][x].checkedLK = true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 int main() {
     readBoardDescription();
-    printBoard();
+    if (!solve(true)) {
+        printf("NO SOLUTION\n\n");
+    }
+    printBoard(false);
     return 0;
 }
