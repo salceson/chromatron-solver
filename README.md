@@ -16,7 +16,7 @@ Przegląd ten jest ograniczony do:
 ## Pseudokod (a'la Python)
 
 ```python
-def solve:
+def solve():
     computeLights()
     if targetsAreLighted():
         return true
