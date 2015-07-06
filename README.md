@@ -18,6 +18,8 @@ Przegląd ten jest ograniczony do:
 ```python
 def solve:
     computeLights()
+    if targetsAreLighted():
+        return true
     for lightedBoardCell in board:
         for deviceType in deviceTypes:
             for direction in goodDirections(deviceType, lightedBoardCell)
