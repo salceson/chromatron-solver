@@ -22,13 +22,13 @@ struct BoardElement {
     bool checkedLK;
 };
 
-void propagateLight(int x, int y, int direction, int color);
+inline void propagateLight(int x, int y, int direction, int color);
 
-int directionPlus180(int direction);
+inline int directionPlus180(int direction);
 
-int directionToX(int direction);
+inline int directionToX(int direction);
 
-int directionToY(int direction);
+inline int directionToY(int direction);
 
 const char *s(const string &str) {
     return str.c_str();
@@ -46,7 +46,7 @@ int width, height, devicesLength;
 
 const bool DEBUG = false;
 
-int stringToColor(string color) {
+inline int stringToColor(string color) {
     if (color.length() != 3) {
         return 0;
     }
@@ -56,7 +56,7 @@ int stringToColor(string color) {
     return r << 2 | g << 1 | b;
 }
 
-string colorToString(int color) {
+inline string colorToString(int color) {
     int r = (color >> 2) & 0x1;
     int g = (color >> 1) & 0x1;
     int b = color & 0x1;
@@ -217,7 +217,7 @@ const int lpPropagation[4][8] = {
         {6,  -1, 4,  -1, 2,  -1, 0,  -1}, //3
 };
 
-int propagationDirection(Device *device, int x, int y, int direction, int color) {
+inline int propagationDirection(Device *device, int x, int y, int direction, int color) {
     string name = device->name;
     int oppositeDirection = directionPlus180(direction);
     int dir = -1;
@@ -261,11 +261,11 @@ int propagationDirection(Device *device, int x, int y, int direction, int color)
     return newX >= 1 && newY >= 1 && newX <= width && newY <= height ? dir : -1;
 }
 
-int directionPlus180(int direction) {
+inline int directionPlus180(int direction) {
     return (direction + 4) % 8;
 }
 
-int directionToX(int direction) {
+inline int directionToX(int direction) {
     switch (direction) {
         case 0:
         case 1:
@@ -279,7 +279,7 @@ int directionToX(int direction) {
     }
 }
 
-int directionToY(int direction) {
+inline int directionToY(int direction) {
     switch (direction) {
         case 1:
         case 2:
@@ -293,7 +293,7 @@ int directionToY(int direction) {
     }
 }
 
-void propagateLight(int x, int y, int direction, int color) {
+inline void propagateLight(int x, int y, int direction, int color) {
     direction = directionPlus180(direction);
     //If we haven't checked the lights...
     while ((board[y][x].colorDirections[direction] & color) == 0x0) {
@@ -328,6 +328,51 @@ void computeLights() {
     }
 }
 
+inline int previousDirection(int direction, int max) {
+    int res = (direction - 1) % max;
+    return res > 0 ? res : res + max;
+}
+
+inline int nextDirection(int direction, int max) {
+    int res = (direction + 1) % max;
+    return res > 0 ? res : res + max;
+}
+
+inline void getGoodDirectionsForDevice(string name, BoardElement *boardElement, bool *goodDirections) {
+    for (int j = 0; j < 8; ++j) {
+        goodDirections[j] = false;
+    }
+
+    if (name == "LU") {
+        for (int i = 0; i < 8; ++i) {
+            if (boardElement->colorDirections[i] != 0x0) {
+                goodDirections[i] = true;
+                goodDirections[previousDirection(i, 8)] = true;
+                goodDirections[nextDirection(i, 8)] = true;
+            }
+        }
+    }
+    if (name == "LP") {
+        for (int i = 0; i < 8; ++i) {
+            if (boardElement->colorDirections[i] != 0x0) {
+                goodDirections[i % 4] = true;
+                goodDirections[previousDirection(i, 4)] = true;
+                goodDirections[nextDirection(i, 4)] = true;
+            }
+        }
+    }
+    if (name == "LK") {
+        for (int i = 0; i < 8; ++i) {
+            if (boardElement->colorDirections[i] != 0x0) {
+                goodDirections[i] = true;
+                goodDirections[previousDirection(i, 8)] = true;
+                goodDirections[nextDirection(i, 8)] = true;
+                goodDirections[nextDirection(nextDirection(i, 8), 8)] = true;
+            }
+        }
+    }
+}
+
 bool checkIfDone() {
     for (auto target :targets) {
         if (board[target->y][target->x].color != target->color) {
@@ -340,9 +385,25 @@ bool checkIfDone() {
 bool solve(bool mark) {
     computeLights();
 
+    int lights[51][51];
+
+    int lightsDir[51][51][8];
+
+
+    for (int i = 1; i <= width; ++i) {
+        for (int j = 1; j <= height; ++j) {
+            lights[j][i] = board[j][i].color;
+            for (int k = 0; k < 8; ++k) {
+                lightsDir[j][i][k] = board[j][i].colorDirections[k];
+            }
+        }
+    }
+
     if (checkIfDone()) {
         return true;
     }
+
+    bool goodDirections[8] = {false};
 
     for (int y = 1; y <= height; ++y) {
         for (int x = 1; x <= width; ++x) {
@@ -357,8 +418,21 @@ bool solve(bool mark) {
                 LUdevices.pop_back();
                 lu->x = x;
                 lu->y = y;
+                for (int i = 1; i <= width; ++i) {
+                    for (int j = 1; j <= height; ++j) {
+                        board[j][i].color = lights[j][i];
+                        for (int k = 0; k < 8; ++k) {
+                            board[j][i].colorDirections[k] = lightsDir[j][i][k];
+                        }
+                    }
+                }
+                getGoodDirectionsForDevice("LU", &board[y][x], goodDirections);
 
                 for (int dir = 0; dir < 8; ++dir) {
+                    if (!goodDirections[dir]) {
+                        continue;
+                    }
+
                     if (DEBUG) {
                         printf("LU %d %d %d\n", x, y, dir);
                     }
@@ -383,9 +457,21 @@ bool solve(bool mark) {
                 LPdevices.pop_back();
                 lp->x = x;
                 lp->y = y;
-                computeLights();
+                for (int i = 1; i <= width; ++i) {
+                    for (int j = 1; j <= height; ++j) {
+                        board[j][i].color = lights[j][i];
+                        for (int k = 0; k < 8; ++k) {
+                            board[j][i].colorDirections[k] = lightsDir[j][i][k];
+                        }
+                    }
+                }
+                getGoodDirectionsForDevice("LP", &board[y][x], goodDirections);
 
                 for (int dir = 0; dir < 4; ++dir) {
+                    if (!goodDirections[dir]) {
+                        continue;
+                    }
+
                     if (DEBUG) {
                         printf("LP %d %d %d\n", x, y, dir);
                     }
@@ -410,9 +496,21 @@ bool solve(bool mark) {
                 LKdevices.pop_back();
                 lk->x = x;
                 lk->y = y;
-                computeLights();
+                for (int i = 1; i <= width; ++i) {
+                    for (int j = 1; j <= height; ++j) {
+                        board[j][i].color = lights[j][i];
+                        for (int k = 0; k < 8; ++k) {
+                            board[j][i].colorDirections[k] = lightsDir[j][i][k];
+                        }
+                    }
+                }
+                getGoodDirectionsForDevice("LK", &board[y][x], goodDirections);
 
                 for (int dir = 0; dir < 8; ++dir) {
+                    if (!goodDirections[dir]) {
+                        continue;
+                    }
+
                     if (DEBUG) {
                         printf("LK %d %d %d\n", x, y, dir);
                     }
@@ -431,7 +529,14 @@ bool solve(bool mark) {
                     board[y][x].checkedLK = true;
                 }
             }
-            computeLights();
+            for (int i = 1; i <= width; ++i) {
+                for (int j = 1; j <= height; ++j) {
+                    board[j][i].color = lights[j][i];
+                    for (int k = 0; k < 8; ++k) {
+                        board[j][i].colorDirections[k] = lightsDir[j][i][k];
+                    }
+                }
+            }
         }
     }
 

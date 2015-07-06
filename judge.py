@@ -4,6 +4,7 @@
 # APTO2015
 
 from sys import *
+import webbrowser
 
 
 viewer = True
@@ -20,7 +21,7 @@ if( viewer ):
 
 # nazwy urzadzen i liczby typow
 NAMES = ["LU", "LP", "ES", "LK", "RU", "BL", "EM", "TG" ]
-TYPES = [  8 ,  4  ,  8  ,   8 ,   4 ,  1  ,   1 ,   1  ]   
+TYPES = [  8 ,  4  ,  8  ,   8 ,   4 ,  1  ,   1 ,   1  ]
 
 
 # kierunki w ramach bloku
@@ -31,11 +32,11 @@ TYPES = [  8 ,  4  ,  8  ,   8 ,   4 ,  1  ,   1 ,   1  ]
 direction = [(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1)]
 dir_translate = [4, 5, 6, 7, 0, 1, 2, 3]
 
-#       0   1   2   3   4   5   6   7   8 
-ru0 = [[4],[ ],[ ],[ ],[0],[ ],[ ],[ ]] 
-ru1 = [[ ],[5],[ ],[ ],[ ],[1],[ ],[ ]] 
-ru2 = [[ ],[ ],[6],[ ],[ ],[ ],[2],[ ]] 
-ru3 = [[ ],[ ],[ ],[7],[ ],[ ],[ ],[3]] 
+#       0   1   2   3   4   5   6   7   8
+ru0 = [[4],[ ],[ ],[ ],[0],[ ],[ ],[ ]]
+ru1 = [[ ],[5],[ ],[ ],[ ],[1],[ ],[ ]]
+ru2 = [[ ],[ ],[6],[ ],[ ],[ ],[2],[ ]]
+ru3 = [[ ],[ ],[ ],[7],[ ],[ ],[ ],[3]]
 
 RU = [ru0,ru1,ru2,ru3]
 
@@ -49,14 +50,14 @@ tg0 = [[4],[5],[6],[7],[0],[1],[2],[3]]
 TG = [tg0]
 
 #       0   1   2   3   4   5   6   7
-lu0 = [[ ],[7],[ ],[ ],[ ],[ ],[ ],[1]]
-lu1 = [[2],[ ],[0],[ ],[ ],[ ],[ ],[ ]]
-lu2 = [[ ],[3],[ ],[1],[ ],[ ],[ ],[ ]]
-lu3 = [[ ],[ ],[4],[ ],[2],[ ],[ ],[ ]]
-lu4 = [[ ],[ ],[ ],[5],[ ],[3],[ ],[ ]]
-lu5 = [[ ],[ ],[ ],[ ],[6],[ ],[4],[ ]]
-lu6 = [[ ],[ ],[ ],[ ],[ ],[7],[ ],[5]]
-lu7 = [[6],[ ],[ ],[ ],[ ],[ ],[0],[ ]]
+lu0 = [[0],[7],[ ],[ ],[ ],[ ],[ ],[1]]
+lu1 = [[2],[1],[0],[ ],[ ],[ ],[ ],[ ]]
+lu2 = [[ ],[3],[2],[1],[ ],[ ],[ ],[ ]]
+lu3 = [[ ],[ ],[4],[3],[2],[ ],[ ],[ ]]
+lu4 = [[ ],[ ],[ ],[5],[4],[3],[ ],[ ]]
+lu5 = [[ ],[ ],[ ],[ ],[6],[5],[4],[ ]]
+lu6 = [[ ],[ ],[ ],[ ],[ ],[7],[6],[5]]
+lu7 = [[6],[ ],[ ],[ ],[ ],[ ],[0],[7]]
 
 LU  = [lu0, lu1, lu2, lu3, lu4, lu5, lu6, lu7]
 
@@ -86,7 +87,7 @@ lp3 = [[4,6],[],[4,6],[7],[0,2],[],[0,2],[3]]
 LP  = [lp0, lp1, lp2, lp3]
 
 
-# 
+#
 es0 = [ [],[],[],[],[],[],[],[] ]
 es1 = [ [],[],[],[],[],[],[],[] ]
 es2 = [ [],[],[],[],[],[],[],[] ]
@@ -122,7 +123,7 @@ propagate = {"LU":LU, "LP":LP, "EM":EM, "ES":ES, "BL":BL, "TG":TG, "RU":RU, "LK"
 
 
 def error( s ):
-  print "BLAD: %s" % s 
+  print "BLAD: %s" % s
   exit(-1)
 
 
@@ -141,7 +142,7 @@ def report( s ):
 def readBoard( f ):
   try:
     s = f.readline()
-    (W,H) = s.split()    
+    (W,H) = s.split()
     W = int(W)
     H = int(H)
     N = int(f.readline())
@@ -155,15 +156,15 @@ def readBoard( f ):
 
     return (W,H,N, devices)
 
-  except: 
-   error( "Blad podczas wczytywania planszy" )  
+  except:
+   error( "Blad podczas wczytywania planszy" )
 
 
 
 
 
 # tworzy opis planszy na podstawie wejscia z pliku
-# 
+#
 # pojedyncza komorka planszy
 # (typ, kierunek, swiatlo[3], parametr)
 #
@@ -195,7 +196,7 @@ def createBoard( B ):
 
 
   # umiesc urzadzenia na planszy
-  for dev in devices:  
+  for dev in devices:
     t = dev[0] # typ
     x = dev[1]
     y = dev[2]
@@ -220,8 +221,8 @@ def createBoard( B ):
               board[y][x][2][c][d] = 1
       except:
         error( "Bledny opis swiatla lasera" )
-        
-        
+
+
 
   return (W,H,board, count, lights)
 
@@ -261,7 +262,7 @@ def boardsConsistent( Bin, Bsol ):
 
   # czy nie uzyto za duzo urzadzen?
   for n in NAMES:
-    if( count_in[n] < 0 ):   
+    if( count_in[n] < 0 ):
       error("Uzyto za duzo urzadzen")
 
   return True
@@ -296,12 +297,12 @@ def computeLights( B ):
       continue  # swiatlo poza plansza
 
     # generuj przejscie swiatla po komorce planszy
-    board[y][x][2][c][d] = 1
+    board[y][x][2][c][d] += 1
 
     prop = propagate[ board[y][x][0] ][ board[y][x][1] ][d]
     for nd in prop:
-      if( board[y][x][2][c][nd] != 1 ):
-        board[y][x][2][c][nd] = 1
+      if( board[y][x][2][c][nd] < 2 ):
+        board[y][x][2][c][nd] += 1
         lights.append( (x,y,nd,c) )
 
 
@@ -317,11 +318,11 @@ def checkTargets( B ):
       if( board[y][x][0] == "TG" ):
         color = "000"
         for d in range(8):
-          if( board[y][x][2][0][d] == 1 ):
+          if( board[y][x][2][0][d] >= 1 ):
             color = "1"+color[1:]
-          if( board[y][x][2][1][d] == 1 ):
+          if( board[y][x][2][1][d] >= 1 ):
             color = color[0]+"1"+color[2]
-          if( board[y][x][2][2][d] == 1 ):
+          if( board[y][x][2][2][d] >= 1 ):
             color = color[0:2]+"1"
 
         if( board[y][x][3] != color ):
@@ -329,8 +330,8 @@ def checkTargets( B ):
 
   return True
 
-  
-  
+
+
 
 
 
@@ -346,13 +347,13 @@ def checkTargets( B ):
 def printBoard( B ):
   W = B[0]
   H = B[1]
-  board = B[2]           
+  board = B[2]
   for y in range(1,H+1):
     s = ""
     for x in range(1,W+1):
       s += board[y][x][0] + " "
     print s
- 
+
 
 
 
@@ -360,11 +361,11 @@ def loadImages( ):
   imgs = {}
   try:
     for n in range(len(NAMES)):
-      for j in range(TYPES[n]): 
+      for j in range(TYPES[n]):
         name = NAMES[n]+str(j)
         imgs[ name ] = Image.open( "img/"+name+".png" )
   except:
-    error( "Blad wczytywania obrazow urzadzen." ) 
+    error( "Blad wczytywania obrazow urzadzen." )
   return imgs
 
 
@@ -414,11 +415,12 @@ def drawBoard( B ):
         for a in [-1,0,1]:
           for b in [-1,0,1]:
             draw.line( [cx+a,cy+b, tx+a, ty+b], fill=color, width=1 )
-  
- 
+
+
   # to be implemented
 
-  boardImg.show()
+  boardImg.save('preview.png')
+  webbrowser.open('preview.png')
   return boardImg
 
 
@@ -429,7 +431,7 @@ def drawBoard( B ):
 
 
 
-def main():
+def main(cmdline, argv):
   if( len(argv) != 3 ):
     error("Wywolanie: judge.py input output")
 
@@ -455,21 +457,23 @@ def main():
   computeLights( Bsol )
 
   # oswietlenie obliczone, pora narysowac plansze
-  if( viewer ):
-    image = drawBoard( Bsol )
-    image.save( argv[2]+".png" )
-  if( checkTargets( Bsol ) ):
-    print "OK"
-    exit(0)
-  else: 
-    print "Cele nieoswietlone"
-    exit(-1)
+  if cmdline:
+    if( viewer ):
+      image = drawBoard( Bsol )
+      # image.save( argv[2]+".png" )
+    if( checkTargets( Bsol ) ):
+      print "OK"
+      exit(0)
+    else:
+      print "Cele nieoswietlone"
+      exit(-1)
+  else:
+    return checkTargets( Bsol )
 
 
 
-try:
-  main()
-except Exception:
-  error("Nieznany blad sedziego")
-
-
+if __name__ == '__main__':
+  try:
+    main(True, argv)
+  except Exception:
+    error("Nieznany blad sedziego")
