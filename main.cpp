@@ -233,11 +233,8 @@ int propagationDirection(Device *device, int x, int y, int direction, int color)
     if (name == "LP") {
         int dx = directionToX(oppositeDirection), dy = directionToY(oppositeDirection);
         int newX = x + dx, newY = y + dy;
-        printf("newX: %d newY: %d\n", newX, newY);
         if (newX >= 1 && newY >= 1 && newX <= width && newY <= height && (direction % 2) != (device->direction % 2)) {
-            printf("P dir: %d newX: %d newY:%d\n", oppositeDirection, newX, newY);
             propagateLight(newX, newY, oppositeDirection, color);
-            printf("END\n");
         }
         dir = lpPropagation[device->direction][direction];
     }
@@ -362,6 +359,7 @@ bool solve(bool mark) {
                 lu->y = y;
 
                 for (int dir = 0; dir < 8; ++dir) {
+                    computeLights();
                     if (DEBUG) {
                         printf("LU %d %d %d\n", x, y, dir);
                     }
@@ -388,6 +386,7 @@ bool solve(bool mark) {
                 lp->y = y;
 
                 for (int dir = 0; dir < 4; ++dir) {
+                    computeLights();
                     if (DEBUG) {
                         printf("LP %d %d %d\n", x, y, dir);
                     }
@@ -414,6 +413,7 @@ bool solve(bool mark) {
                 lk->y = y;
 
                 for (int dir = 0; dir < 8; ++dir) {
+                    computeLights();
                     if (DEBUG) {
                         printf("LK %d %d %d\n", x, y, dir);
                     }
@@ -432,6 +432,7 @@ bool solve(bool mark) {
                     board[y][x].checkedLK = true;
                 }
             }
+            computeLights();
         }
     }
 
@@ -441,7 +442,7 @@ bool solve(bool mark) {
 int main() {
     readBoardDescription();
     if (!solve(true)) {
-        printf("NO SOLUTION\n\n");
+        return 1;
     }
     printBoard(false);
     return 0;
