@@ -89,6 +89,7 @@ install_manifest.txt
 *.png
 !img/*.png
 !example.out
+!example.in
 *.in
 input*
 output*
@@ -98,3 +99,4 @@ tests/
 tests2/
 unit/
 judge.py
+*.pyc
